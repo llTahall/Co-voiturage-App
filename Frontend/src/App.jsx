@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
-import ProtectedRoute from './components/ProtectedRoute'
+import ProtectedRoute, { RoleProtectedRoute } from './components/ProtectedRoute'
+
 import Navbar from './components/Navbar'
 
 import LoginPage from './pages/LoginPage'
@@ -11,6 +12,7 @@ import CreateAnnoncePage from './pages/CreateAnnoncePage'
 import MyAnnoncesPage from './pages/MyAnnoncesPage'
 import MyReservationsPage from './pages/MyReservationsPage'
 import ProfilePage from './pages/ProfilePage'
+import MesPassagersPage from './pages/MesPassagersPage'
 
 export default function App() {
   return (
@@ -23,8 +25,13 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/search" element={<SearchPage />} />
 
-          <Route element={<ProtectedRoute />}>
+          <Route element={<RoleProtectedRoute role="CONDUCTEUR" />}>
             <Route path="/annonces/create" element={<CreateAnnoncePage />} />
+            <Route path="/mes-passagers" element={<MesPassagersPage />} />
+
+          </Route>
+
+          <Route element={<ProtectedRoute />}>
             <Route path="/mes-annonces" element={<MyAnnoncesPage />} />
             <Route path="/mes-reservations" element={<MyReservationsPage />} />
             <Route path="/profil" element={<ProfilePage />} />

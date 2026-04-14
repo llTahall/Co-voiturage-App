@@ -6,8 +6,8 @@ import L from 'leaflet'
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
 function ClickHandler({ onPick }) {
@@ -19,21 +19,32 @@ export default function MapPicker({ label, value, onChange }) {
   const [query, setQuery] = useState(value?.adresse || '')
   const [suggestions, setSuggestions] = useState([])
   const [position, setPosition] = useState(
-    value?.lat ? [value.lat, value.lon] : [36.7372, 3.0868]
+    value?.lat ? [value.lat, value.lon] : [33.5731, -7.5898]
   )
   const debounceRef = useRef(null)
 
   const search = (q) => {
     clearTimeout(debounceRef.current)
     if (q.length < 3) { setSuggestions([]); return }
+
+    // Coordonnées GPS directes : "33.123, -7.456"
+    const coordMatch = q.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/)
+    if (coordMatch) {
+      const lat = parseFloat(coordMatch[1])
+      const lon = parseFloat(coordMatch[2])
+      setPosition([lat, lon])
+      onChange({ ville: q, adresse: q, lat, lon })
+      setSuggestions([])
+      return
+    }
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1`,
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1&countrycodes=ma&viewbox=-13.2,35.9,-0.9,27.6&bounded=0`,
           { headers: { 'Accept-Language': 'fr' } }
         )
         setSuggestions(await res.json())
-      } catch {}
+      } catch { }
     }, 400)
   }
 
@@ -55,7 +66,7 @@ export default function MapPicker({ label, value, onChange }) {
       const ville = data.address?.city || data.address?.town || data.address?.village || ''
       setQuery(data.display_name)
       onChange({ ville, adresse: data.display_name, lat, lon: lng })
-    } catch {}
+    } catch { }
   }
 
   return (
@@ -84,7 +95,7 @@ export default function MapPicker({ label, value, onChange }) {
       </div>
 
       <div className="rounded-xl overflow-hidden border border-stone-200 h-48">
-        <MapContainer center={position} zoom={12} className="h-full w-full">
+        <MapContainer center={position} zoom={6} className="h-full w-full">
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <Marker position={position} />
           <ClickHandler onPick={handleMapClick} />

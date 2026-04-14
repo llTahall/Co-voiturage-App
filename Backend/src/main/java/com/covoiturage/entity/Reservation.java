@@ -1,5 +1,6 @@
 package com.covoiturage.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -9,7 +10,11 @@ import java.util.List;
 
 @Entity
 @Table(name = "reservations")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Reservation {
 
     @Id
@@ -23,7 +28,7 @@ public class Reservation {
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    private StatusReservation statut = StatusReservation.CONFIRMEE;
+    private StatusReservation statut = StatusReservation.EN_ATTENTE;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "passager_id", nullable = false)
@@ -33,6 +38,7 @@ public class Reservation {
     @JoinColumn(name = "annonce_id", nullable = false)
     private Annonce annonce;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Evaluation> evaluations = new ArrayList<>();

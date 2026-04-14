@@ -1,5 +1,6 @@
 package com.covoiturage.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -11,6 +12,7 @@ import java.util.List;
 @Entity
 @Table(name = "annonces")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties({"reservations", "hibernateLazyInitializer", "handler"})
 public class Annonce {
 
     @Id

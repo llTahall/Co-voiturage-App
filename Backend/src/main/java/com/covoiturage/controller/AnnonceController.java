@@ -1,7 +1,7 @@
 package com.covoiturage.controller;
 
 import com.covoiturage.dto.AnnonceRequest;
-import com.covoiturage.entity.Annonce;
+import com.covoiturage.dto.AnnonceResponse;
 import com.covoiturage.service.AnnonceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,12 +20,12 @@ public class AnnonceController {
     private final AnnonceService annonceService;
 
     @PostMapping
-    public ResponseEntity<Annonce> create(@Valid @RequestBody AnnonceRequest request) {
-        return ResponseEntity.ok(annonceService.create(request));
+    public ResponseEntity<Long> create(@Valid @RequestBody AnnonceRequest request) {
+        return ResponseEntity.ok(annonceService.create(request).getId());
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Annonce>> search(
+    public ResponseEntity<List<AnnonceResponse>> search(
             @RequestParam(required = false) String villeDepart,
             @RequestParam(required = false) String villeArrivee,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
@@ -34,12 +34,12 @@ public class AnnonceController {
     }
 
     @GetMapping("/mes-annonces")
-    public ResponseEntity<List<Annonce>> getMesAnnonces() {
+    public ResponseEntity<List<AnnonceResponse>> getMesAnnonces() {
         return ResponseEntity.ok(annonceService.getMesAnnonces());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Annonce> getById(@PathVariable Long id) {
+    public ResponseEntity<AnnonceResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(annonceService.getById(id));
     }
 
@@ -48,4 +48,11 @@ public class AnnonceController {
         annonceService.annuler(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/{id}/terminer")
+    public ResponseEntity<Void> terminer(@PathVariable Long id) {
+        annonceService.terminerManuellement(id);
+        return ResponseEntity.noContent().build();
+    }
+
 }

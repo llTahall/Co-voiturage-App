@@ -3,6 +3,9 @@ package com.covoiturage.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "trajets")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -12,15 +15,10 @@ public class Trajet {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String villeDepart;
-    private String adresseDepart;
-    private Double latitudeDepart;
-    private Double longitudeDepart;
+    private Double distanceTotale;
+    
+    private Integer dureeEstimeeTotale;
 
-    private String villeArrivee;
-    private String adresseArrivee;
-    private Double latitudeArrivee;
-    private Double longitudeArrivee;
-
-    private Integer dureeEstimee;
+    @OneToMany(mappedBy = "trajet", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Etape> etapes = new ArrayList<>();
 }

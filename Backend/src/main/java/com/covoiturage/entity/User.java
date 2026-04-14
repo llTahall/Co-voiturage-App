@@ -1,5 +1,6 @@
 package com.covoiturage.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -12,6 +13,7 @@ import java.util.List;
 @Table(name = "users",
         uniqueConstraints = @UniqueConstraint(columnNames = "email"))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties({"motDePasse", "vehicules", "annonces", "reservations", "hibernateLazyInitializer", "handler"})
 public class User {
 
     @Id

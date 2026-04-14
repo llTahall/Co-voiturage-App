@@ -1,7 +1,9 @@
 package com.covoiturage.entity;
 
 public enum StatusReservation {
-    CONFIRMEE,
+    EN_ATTENTE,
+    ACCEPTEE,
+    REFUSEE_CONDUCTEUR,
     ANNULEE_PASSAGER,
     ANNULEE_CONDUCTEUR
 }

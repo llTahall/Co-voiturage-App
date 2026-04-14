@@ -24,7 +24,7 @@ public class JwtUtils {
     private int jwtExpirationMs;
 
     private SecretKey key() {
-        return Keys.hmacShaKeyFor(Decoders.BASE64HEX.decode(jwtSecret));
+        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
     }
 
     public String generateJwtToken(Authentication authentication) {

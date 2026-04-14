@@ -6,25 +6,36 @@ import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 @Data
 public class AnnonceRequest {
-    @NotNull private LocalDate dateDepart;
-    @NotNull private LocalTime heureDepart;
-    @Positive private Integer placesTotal;
-    @Positive private Double prixParPlace;
-    @NotNull private Long vehiculeId;
+    @NotNull
+    private LocalDate dateDepart;
+    @NotNull
+    private LocalTime heureDepart;
+    @Positive
+    private Integer placesTotal;
+    @Positive
+    private Double prixParPlace;
+    @NotNull
+    private Long vehiculeId;
 
-    // Trajet fields
-    @NotNull private String villeDepart;
-    private String adresseDepart;
-    private Double latitudeDepart;
-    private Double longitudeDepart;
+    // Remplacement du Trajet simple par des métriques globales et une liste
+    // d'étapes
+    @Positive
+    private Double distanceTotale;
+    @Positive
+    private Integer dureeEstimeeTotale;
 
-    @NotNull private String villeArrivee;
-    private String adresseArrivee;
-    private Double latitudeArrivee;
-    private Double longitudeArrivee;
+    @NotNull
+    private List<EtapeDTO> etapes;
 
-    private Integer dureeEstimee;
+    @Data
+    public static class EtapeDTO {
+        private String ville;
+        private String adresse;
+        private Double latitude;
+        private Double longitude;
+    }
 }
