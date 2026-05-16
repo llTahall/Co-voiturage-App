@@ -102,6 +102,24 @@ public class ReservationResponse {
                 .nombrePlaces(r.getNombrePlaces())
                 .statut(r.getStatut() != null ? r.getStatut().name() : null)
                 .annonce(annonceInfo)
+                .passager(r.getPassager() != null ? PassagerInfo.builder()
+                        .prenom(r.getPassager().getPrenom())
+                        .nom(r.getPassager().getNom())
+                        .telephone(r.getPassager().getTelephone())
+                        .build() : null)
                 .build();
+
     }
+
+    private PassagerInfo passager;
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    public static class PassagerInfo {
+        private String prenom;
+        private String nom;
+        private String telephone;
+    }
+
 }

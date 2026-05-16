@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../context/NotificationContext'
 import { useEffect, useState, useRef } from 'react'
@@ -9,6 +9,7 @@ export default function ConducteurNavbar() {
     const { user, logout } = useAuth()
     const { notifications } = useNotifications()
     const navigate = useNavigate()
+    const location = useLocation()
     const [pending, setPending] = useState(0)
     const [open, setOpen] = useState(false)
     const dropdownRef = useRef(null)
@@ -17,8 +18,7 @@ export default function ConducteurNavbar() {
         .then(({ data }) => setPending(data.filter(r => r.statut === 'EN_ATTENTE').length))
         .catch(() => { })
 
-    // fetch une seule fois au montage
-    useEffect(() => { fetchPending() }, [])
+    useEffect(() => { fetchPending() }, [location.pathname])
 
     useEffect(() => {
         const latest = notifications[0]
@@ -42,16 +42,16 @@ export default function ConducteurNavbar() {
             <NavLink to="/conducteur/home">Accueil</NavLink>
             <NavLink to="/annonces/create">Publier</NavLink>
 
-            <Link to="/mes-annonces" className="relative text-sm font-semibold text-[#4A4A42] hover:text-[#111713] transition-[color] duration-150">
-                Mes annonces
+            <NavLink to="/mes-annonces">Mes annonces</NavLink>
+
+            <Link to="/mes-passagers" className="relative text-sm font-semibold text-[#4A4A42] hover:text-[#111713] transition-[color] duration-150">
+                Mes passagers
                 {pending > 0 && (
                     <span className="absolute -top-1.5 -right-3 min-w-[16px] h-[16px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
                         {pending > 9 ? '9+' : pending}
                     </span>
                 )}
             </Link>
-
-            <NavLink to="/mes-passagers">Mes passagers</NavLink>
 
             <NotificationBell />
 
