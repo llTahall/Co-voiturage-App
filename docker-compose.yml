@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: covoit-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: covoit_root_2025
+      MYSQL_DATABASE: covoiturage_db
+      MYSQL_USER: covoit_user
+      MYSQL_PASSWORD: covoit_pass_2025
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./Backend
+    container_name: covoit-backend
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/covoiturage_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: covoit_user
+      SPRING_DATASOURCE_PASSWORD: covoit_pass_2025
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  frontend:
+    build: ./Frontend
+    container_name: covoit-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
