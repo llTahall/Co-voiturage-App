@@ -60,7 +60,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex">
-      <div className="hidden lg:flex flex-col justify-between w-[42%] p-12 relative overflow-hidden" style={{ background: '#00854B' }}>
+      {/* <div className="hidden lg:flex flex-col justify-between w-[42%] p-12 relative overflow-hidden" style={{ background: '#00854B' }}>
         <Link to="/" className="flex items-center gap-2.5 relative z-10">
           <div className="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center">
             <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
@@ -82,21 +82,21 @@ export default function RegisterPage() {
           ))}
         </div>
         <p className="text-[#3A5C47] text-xs relative z-10">© 2025 CoVoiture</p>
-      </div>
+      </div> */}
 
       <div className="flex-1 flex items-center justify-center px-6 py-16 bg-[#F7F7F4] overflow-y-auto">
         <div className="w-full max-w-sm anim-fade-up">
           <div className="mb-7">
             <h1 className="text-[2.2rem] font-display font-bold text-[#111713]">Créer un compte</h1>
-            <p className="text-[#5A7265] mt-1.5">Rejoignez la communauté CoVoiture.</p>
+
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3.5">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Prénom" value={form.prenom} onChange={set('prenom')} placeholder="Yacine" error={errors.prenom} />
-              <Field label="Nom" value={form.nom} onChange={set('nom')} placeholder="Benali" error={errors.nom} />
+              <Field label="Prénom" value={form.prenom} onChange={set('prenom')} error={errors.prenom} />
+              <Field label="Nom" value={form.nom} onChange={set('nom')} error={errors.nom} />
             </div>
-            <Field label="Email" type="email" value={form.email} onChange={set('email')} placeholder="vous@exemple.com" error={errors.email} />
+            <Field label="Email" type="email" value={form.email} onChange={set('email')} error={errors.email} />
             <Field label="Mot de passe" type="password" value={form.motDePasse} onChange={set('motDePasse')} placeholder="Min. 8 car., majuscule, chiffre, @$!..." error={errors.motDePasse} />
             <Field label="Téléphone (optionnel)" type="tel" value={form.telephone} onChange={set('telephone')} placeholder="0612345678" error={errors.telephone} />
 

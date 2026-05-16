@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useLocation, Link } from 'react-router-dom'
-import { getMesReservations, annulerReservation } from '../api/reservationAPI'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
+import { getMesReservations, annulerReservation } from '../../api/reservationAPI'
+import { useNotifications } from '../../context/NotificationContext'
+
 
 const statusConfig = {
   EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -18,25 +20,51 @@ export default function MyReservationsPage() {
   const [tab, setTab] = useState('actives')
   const [filterStatus, setFilterStatus] = useState('TOUS')
   const location = useLocation()
+  const navigate = useNavigate()
   const justReserved = location.state?.justReserved
 
-  const load = () => getMesReservations()
-    .then(({ data }) => setReservations(data))
-    .finally(() => setLoading(false))
+  const load = () => {
+    setLoading(true)
+    return getMesReservations()
+      .then(({ data }) => setReservations(data))
+      .catch(err => console.error('[MyReservations] load failed:', err))
+      .finally(() => setLoading(false))
+  }
+
+  const { notifications } = useNotifications()
 
   useEffect(() => {
     load()
-    const interval = setInterval(load, 15000)
-    return () => clearInterval(interval)
+    if (justReserved) navigate(location.pathname, { replace: true, state: {} })
   }, [])
+
+  const PASSAGER_EVENTS = new Set([
+    'RESERVATION_ACCEPTEE', 'RESERVATION_REFUSEE',
+    'RESERVATION_ANNULEE_CONDUCTEUR', 'ANNONCE_ANNULEE',
+    'TRAJET_DEMARRE', 'TRAJET_TERMINE',
+  ])
+
+  useEffect(() => {
+    const latest = notifications[0]
+    if (latest && PASSAGER_EVENTS.has(latest.type)) load()
+  }, [notifications.length])
+
 
   const handleAnnuler = async (id) => {
     await annulerReservation(id)
     load()
   }
 
-  const active = reservations.filter(r => ACTIVE_STATUTS.includes(r.statut))
-  const historyAll = reservations.filter(r => !ACTIVE_STATUTS.includes(r.statut))
+  const active = reservations.filter(r =>
+    ACTIVE_STATUTS.includes(r.statut) &&
+    r.annonce?.statut !== 'TERMINEE' &&
+    r.annonce?.statut !== 'ANNULEE'
+  )
+  const historyAll = reservations.filter(r =>
+    !ACTIVE_STATUTS.includes(r.statut) ||
+    r.annonce?.statut === 'TERMINEE' ||
+    r.annonce?.statut === 'ANNULEE'
+  )
   const history = filterStatus === 'TOUS' ? historyAll : historyAll.filter(r => r.statut === filterStatus)
 
   const displayed = tab === 'actives' ? active : history

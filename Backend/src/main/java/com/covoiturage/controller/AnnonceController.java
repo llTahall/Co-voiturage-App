@@ -55,4 +55,10 @@ public class AnnonceController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}/demarrer")
+    public ResponseEntity<Void> demarrer(@PathVariable Long id) {
+        annonceService.demarrer(id);
+        return ResponseEntity.noContent().build();
+    }
+
 }

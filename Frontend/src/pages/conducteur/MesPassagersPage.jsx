@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getMesPassagers, accepterReservation, refuserReservation } from '../api/reservationAPI'
+import { getMesPassagers, accepterReservation, refuserReservation } from '../../api/reservationAPI'
+import { useNotifications } from '../../context/NotificationContext'
 
 const statusConfig = {
     EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -18,11 +19,18 @@ export default function MesPassagersPage() {
     const [loading, setLoading] = useState(true)
     const [tab, setTab] = useState('en_attente')
 
+    const { notifications } = useNotifications()
+
     const load = () => getMesPassagers()
         .then(({ data }) => setReservations(data))
         .finally(() => setLoading(false))
 
     useEffect(() => { load() }, [])
+
+    useEffect(() => {
+        const latest = notifications[0]
+        if (latest?.type === 'NOUVELLE_RESERVATION' || latest?.type === 'RESERVATION_ANNULEE_PASSAGER') load()
+    }, [notifications.length])
 
     const handleAccepter = async (id) => { await accepterReservation(id); load() }
     const handleRefuser = async (id) => { await refuserReservation(id); load() }

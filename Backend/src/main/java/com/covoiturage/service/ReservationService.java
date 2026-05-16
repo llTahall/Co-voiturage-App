@@ -8,6 +8,8 @@ import com.covoiturage.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 
@@ -18,6 +20,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final AnnonceRepository annonceRepository;
     private final UserService userService;
+    private final NotificationService notificationService;
 
     @Transactional
     public Reservation create(ReservationRequest req) {
@@ -26,16 +29,12 @@ public class ReservationService {
         Annonce annonce = annonceRepository.findById(req.getAnnonceId())
                 .orElseThrow(() -> new RuntimeException("Annonce not found"));
 
-        // Empêcher le conducteur de réserver sa propre annonce
         if (annonce.getConducteur().getId().equals(me.getId())) {
             throw new RuntimeException("Vous ne pouvez pas réserver votre propre annonce");
         }
-
-        // Empêcher un conducteur de réserver tout court (logique métier)
         if ("CONDUCTEUR".equals(me.getRole())) {
             throw new RuntimeException("Les conducteurs ne peuvent pas réserver de trajets");
         }
-
         if (annonce.getStatut() != StatusAnnonce.PUBLIEE) {
             throw new RuntimeException("Annonce is not available");
         }
@@ -46,16 +45,25 @@ public class ReservationService {
             throw new RuntimeException("Already requested or reserved");
         }
 
-        // On NE décrémente PAS les places ici !
-
         Reservation reservation = Reservation.builder()
                 .passager(me)
                 .annonce(annonce)
                 .nombrePlaces(req.getNombrePlaces())
-                .statut(StatusReservation.EN_ATTENTE) // <-- NOUVEAU STATUT
+                .statut(StatusReservation.EN_ATTENTE)
                 .build();
 
-        return reservationRepository.save(reservation);
+        reservation = reservationRepository.save(reservation);
+
+        final String conducteurEmail = annonce.getConducteur().getEmail();
+        final Long resaId = reservation.getId();
+        final String nomPassager = me.getPrenom() + " " + me.getNom();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                notificationService.notifier(conducteurEmail, "NOUVELLE_RESERVATION", nomPassager + " demande une réservation", resaId);
+            }
+        });
+
+        return reservation;
     }
 
     @Transactional
@@ -66,22 +74,16 @@ public class ReservationService {
         User me = userService.getCurrentUser();
         Annonce annonce = reservation.getAnnonce();
 
-        // Sécurité : Seul le conducteur de l'annonce peut accepter
         if (!annonce.getConducteur().getId().equals(me.getId())) {
             throw new RuntimeException("Not authorized - You are not the driver");
         }
-
         if (reservation.getStatut() != StatusReservation.EN_ATTENTE) {
             throw new RuntimeException("Reservation is not pending");
         }
-
-        // On vérifie une deuxième fois au cas où une autre réservation a pris les
-        // dernières places entre temps
         if (annonce.getPlacesDisponibles() < reservation.getNombrePlaces()) {
             throw new RuntimeException("No more seats available");
         }
 
-        // C'EST ICI qu'on décrémente
         annonce.setPlacesDisponibles(annonce.getPlacesDisponibles() - reservation.getNombrePlaces());
         if (annonce.getPlacesDisponibles() == 0) {
             annonce.setStatut(StatusAnnonce.COMPLETE);
@@ -90,6 +92,13 @@ public class ReservationService {
 
         reservation.setStatut(StatusReservation.ACCEPTEE);
         reservationRepository.save(reservation);
+
+        final String passagerEmailA = reservation.getPassager().getEmail();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                notificationService.notifier(passagerEmailA, "RESERVATION_ACCEPTEE", "Votre réservation a été acceptée", reservationId);
+            }
+        });
     }
 
     @Transactional
@@ -102,8 +111,8 @@ public class ReservationService {
             throw new RuntimeException("Not authorized");
         }
 
-        // Si la résa avait déjà été acceptée, on doit rendre les places au conducteur
-        if (reservation.getStatut() == StatusReservation.ACCEPTEE) {
+        boolean wasAcceptee = reservation.getStatut() == StatusReservation.ACCEPTEE;
+        if (wasAcceptee) {
             Annonce annonce = reservation.getAnnonce();
             annonce.setPlacesDisponibles(annonce.getPlacesDisponibles() + reservation.getNombrePlaces());
             if (annonce.getStatut() == StatusAnnonce.COMPLETE) {
@@ -114,6 +123,20 @@ public class ReservationService {
 
         reservation.setStatut(StatusReservation.ANNULEE_PASSAGER);
         reservationRepository.save(reservation);
+
+        final String conducteurEmail = reservation.getAnnonce().getConducteur().getEmail();
+        final String nomPassager = me.getPrenom() + " " + me.getNom();
+        final Long annonceId = reservation.getAnnonce().getId();
+        final boolean placesFreed = wasAcceptee;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                notificationService.notifier(conducteurEmail, "RESERVATION_ANNULEE_PASSAGER",
+                        nomPassager + " a annulé sa réservation", id);
+                if (placesFreed) {
+                    notificationService.broadcast("ANNONCE_MISE_A_JOUR", "Des places sont à nouveau disponibles", annonceId);
+                }
+            }
+        });
     }
 
     @Transactional
@@ -124,24 +147,27 @@ public class ReservationService {
         User me = userService.getCurrentUser();
         Annonce annonce = reservation.getAnnonce();
 
-        // Sécurité : Seul le conducteur de l'annonce peut refuser
         if (!annonce.getConducteur().getId().equals(me.getId())) {
             throw new RuntimeException("Not authorized - You are not the driver");
         }
-
         if (reservation.getStatut() != StatusReservation.EN_ATTENTE) {
             throw new RuntimeException("Reservation is not pending");
         }
 
-        // On change simplement le statut, on ne touche pas aux places de l'annonce
         reservation.setStatut(StatusReservation.REFUSEE_CONDUCTEUR);
         reservationRepository.save(reservation);
+
+        final String passagerEmailR = reservation.getPassager().getEmail();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                notificationService.notifier(passagerEmailR, "RESERVATION_REFUSEE", "Votre réservation a été refusée", reservationId);
+            }
+        });
     }
 
     @Transactional(readOnly = true)
     public List<ReservationResponse> getMesReservations() {
         User me = userService.getCurrentUser();
-        // Assure-toi d'importer java.util.List
         return reservationRepository.findByPassagerId(me.getId())
                 .stream().map(ReservationResponse::from).toList();
     }
@@ -152,5 +178,4 @@ public class ReservationService {
         return reservationRepository.findByAnnonceConducteurId(me.getId())
                 .stream().map(ReservationResponse::from).toList();
     }
-
 }

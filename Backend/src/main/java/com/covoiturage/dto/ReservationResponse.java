@@ -25,12 +25,12 @@ public class ReservationResponse {
     @AllArgsConstructor
     public static class AnnonceInfo {
         private Long id;
+        private String statut;
         private LocalDate dateDepart;
         private LocalTime heureDepart;
         private Double prixParPlace;
         private TrajetInfo trajet;
         private ConducteurInfo conducteur;
-
     }
 
     @Data
@@ -83,6 +83,7 @@ public class ReservationResponse {
 
             annonceInfo = AnnonceInfo.builder()
                     .id(a.getId())
+                    .statut(a.getStatut() != null ? a.getStatut().name() : null)
                     .dateDepart(a.getDateDepart())
                     .heureDepart(a.getHeureDepart())
                     .prixParPlace(a.getPrixParPlace())
