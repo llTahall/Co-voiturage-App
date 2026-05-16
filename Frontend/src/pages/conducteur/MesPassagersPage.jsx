@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getMesPassagers, accepterReservation, refuserReservation } from '../../api/reservationAPI'
 import { useNotifications } from '../../context/NotificationContext'
+import EvaluationModal from '../../components/EvaluationModal'
 
 const statusConfig = {
     EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -18,6 +19,7 @@ export default function MesPassagersPage() {
     const [reservations, setReservations] = useState([])
     const [loading, setLoading] = useState(true)
     const [tab, setTab] = useState('en_attente')
+    const [evalTarget, setEvalTarget] = useState(null)
 
     const { notifications } = useNotifications()
 
@@ -106,19 +108,31 @@ export default function MesPassagersPage() {
                                 r={r}
                                 onAccepter={handleAccepter}
                                 onRefuser={handleRefuser}
+                                onEvaluer={setEvalTarget}
                             />
                         ))}
                     </div>
                 )}
             </div>
+
+            {evalTarget && (
+                <EvaluationModal
+                    reservation={evalTarget}
+                    destinataireId={evalTarget.passager?.id}
+                    destinataireName={`${evalTarget.passager?.prenom ?? ''} ${evalTarget.passager?.nom ?? ''}`}
+                    onClose={() => setEvalTarget(null)}
+                    onDone={() => { setEvalTarget(null); load() }}
+                />
+            )}
         </div>
     )
 }
 
-function PassagerCard({ r, onAccepter, onRefuser }) {
+function PassagerCard({ r, onAccepter, onRefuser, onEvaluer }) {
     const [loadingA, setLoadingA] = useState(false)
     const [loadingR, setLoadingR] = useState(false)
     const status = statusConfig[r.statut] ?? statusConfig.ANNULEE_CONDUCTEUR
+    const canEvaluate = r.statut === 'ACCEPTEE' && r.annonce?.statut === 'TERMINEE' && !r.hasEvaluated
 
     const handleAccepter = async () => {
         setLoadingA(true)
@@ -204,6 +218,35 @@ function PassagerCard({ r, onAccepter, onRefuser }) {
                     )}
                 </div>
             </div>
+
+            {/* Évaluation banner */}
+            {canEvaluate && (
+                <div className="px-5 py-3 border-t border-[rgba(0,0,0,0.06)] bg-brand-50/60 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-brand-600 shrink-0">
+                            <path d="M7 1.5L8.5 5H12.5L9.2 7.3L10.5 11.5L7 9.1L3.5 11.5L4.8 7.3L1.5 5H5.5L7 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                        </svg>
+                        <span className="text-xs font-semibold text-brand-700">Trajet terminé — évaluez ce passager</span>
+                    </div>
+                    <button
+                        onClick={() => onEvaluer(r)}
+                        className="px-4 py-1.5 rounded-xl bg-brand-600 text-white text-xs font-bold hover:bg-brand-700 active:scale-[0.96] transition-[background-color,transform] duration-150"
+                        style={{ boxShadow: '0 2px 8px rgba(0,133,75,0.25)' }}
+                    >
+                        Évaluer
+                    </button>
+                </div>
+            )}
+
+            {r.hasEvaluated && r.annonce?.statut === 'TERMINEE' && (
+                <div className="px-5 py-2.5 border-t border-[rgba(0,0,0,0.06)] flex items-center gap-2">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-brand-500 shrink-0">
+                        <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2" />
+                        <path d="M3.5 6l2 2 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span className="text-[11px] text-brand-600 font-semibold">Avis envoyé</span>
+                </div>
+            )}
         </div>
     )
 }

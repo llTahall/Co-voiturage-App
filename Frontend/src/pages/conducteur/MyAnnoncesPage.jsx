@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getMesAnnonces, annulerAnnonce, demarrerAnnonce, terminerAnnonce } from '../../api/annonceAPI'
+import { getMesPassagers } from '../../api/reservationAPI'
 import AnnonceCard from '../../components/AnnonceCard'
+import EvaluationModal from '../../components/EvaluationModal'
 import { Link } from 'react-router-dom'
 import { useNotifications } from '../../context/NotificationContext'
 
@@ -13,16 +15,27 @@ const STATUS_LABELS = {
 
 export default function MyAnnoncesPage() {
   const [annonces, setAnnonces] = useState([])
+  const [passagersByAnnonce, setPassagersByAnnonce] = useState({})
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('actives')
   const [filterStatus, setFilterStatus] = useState('TOUS')
+  const [evalQueue, setEvalQueue] = useState([])
+  const [evalIndex, setEvalIndex] = useState(0)
 
   const { notifications } = useNotifications()
 
-  const load = () => getMesAnnonces()
-    .then(({ data }) => {
-      const unique = data.filter((a, i, arr) => arr.findIndex(x => x.id === a.id) === i)
+  const load = () => Promise.all([getMesAnnonces(), getMesPassagers()])
+    .then(([{ data: annoncesData }, { data: reservationsData }]) => {
+      const unique = annoncesData.filter((a, i, arr) => arr.findIndex(x => x.id === a.id) === i)
       setAnnonces(unique)
+      const grouped = {}
+      reservationsData.forEach(r => {
+        if (r.statut === 'ACCEPTEE' && r.annonce?.id) {
+          if (!grouped[r.annonce.id]) grouped[r.annonce.id] = []
+          grouped[r.annonce.id].push(r.passager)
+        }
+      })
+      setPassagersByAnnonce(grouped)
     })
     .finally(() => setLoading(false))
 
@@ -51,9 +64,31 @@ export default function MyAnnoncesPage() {
     try {
       await terminerAnnonce(id)
       load()
+      const { data: reservations } = await getMesPassagers()
+      const toEval = reservations.filter(r =>
+        r.annonce?.id === id && r.statut === 'ACCEPTEE' && !r.hasEvaluated
+      )
+      if (toEval.length > 0) {
+        setEvalQueue(toEval)
+        setEvalIndex(0)
+      }
     } catch (e) {
       alert(e.response?.data?.message || 'Impossible de terminer ce trajet pour le moment')
     }
+  }
+
+  const handleEvalDone = () => {
+    if (evalIndex + 1 < evalQueue.length) {
+      setEvalIndex(i => i + 1)
+    } else {
+      setEvalQueue([])
+      setEvalIndex(0)
+    }
+  }
+
+  const handleEvalClose = () => {
+    setEvalQueue([])
+    setEvalIndex(0)
   }
 
   const actives = annonces.filter(a => a.statut !== 'ANNULEE' && a.statut !== 'TERMINEE')
@@ -153,40 +188,117 @@ export default function MyAnnoncesPage() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-5">
-            {displayed.map(a => (
-              <div key={a.id} className="relative">
-                <AnnonceCard annonce={a} />
-                <div className="flex items-center gap-3 mt-2 ml-1">
-                  {(a.statut === 'PUBLIEE' || a.statut === 'COMPLETE') && (
-                    <button
-                      onClick={() => handleAnnuler(a.id)}
-                      className="text-xs text-red-400 hover:text-red-600 transition-[color] duration-150 font-medium"
-                    >
-                      Annuler
-                    </button>
-                  )}
-                  {(a.statut === 'PUBLIEE' || a.statut === 'COMPLETE') && (
-                    <button
-                      onClick={() => handleDemarrer(a.id)}
-                      className="text-xs font-bold px-4 py-1.5 rounded-lg bg-[#00854B] text-white hover:bg-[#006D3D] active:scale-[0.97] transition-[background-color,transform] duration-150 shadow-[0_2px_6px_rgba(0,133,75,0.3)]"
-                    >
-                      Démarrer le trajet
-                    </button>
-                  )}
-                  {a.statut === 'EN_COURS' && (
-                    <button
-                      onClick={() => handleTerminer(a.id)}
-                      className="text-xs font-bold px-4 py-1.5 rounded-lg bg-[#1A1A1A] text-white hover:bg-[#333] active:scale-[0.97] transition-[background-color,transform] duration-150"
-                    >
-                      Terminer le trajet
-                    </button>
-                  )}
+            {displayed.map(a => {
+              if (a.statut === 'EN_COURS') {
+                const etapes = [...(a.trajet?.etapes ?? [])].sort((x, y) => x.ordre - y.ordre)
+                const depart = etapes[0]?.ville ?? '—'
+                const arrivee = etapes[etapes.length - 1]?.ville ?? '—'
+                const date = a.dateDepart
+                  ? new Date(a.dateDepart).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+                  : '—'
+                const passagers = (passagersByAnnonce[a.id] ?? []).filter(Boolean)
+                return (
+                  <div key={a.id} className="bg-white rounded-2xl border border-brand-300 ring-1 ring-brand-200 shadow-card overflow-hidden">
+                    <div className="bg-brand-600 px-5 py-2.5 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                      <span className="text-white text-xs font-bold tracking-wide uppercase">Trajet en cours</span>
+                    </div>
+                    <div className="p-5 flex items-start justify-between gap-4">
+                      <div className="space-y-2 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 font-display font-bold text-lg text-[#1A1A1A]">
+                          <span className="truncate">{depart}</span>
+                          <svg width="16" height="10" viewBox="0 0 16 10" fill="none" className="shrink-0 text-brand-500">
+                            <path d="M1 5h13M10 1l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          <span className="truncate">{arrivee}</span>
+                        </div>
+                        <p className="text-sm text-[#666]">
+                          {date}{a.heureDepart && <> · {a.heureDepart.slice(0, 5)}</>}
+                        </p>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border bg-brand-50 text-brand-700 border-brand-200">
+                          En cours
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-2xl font-display font-bold text-brand-600 leading-tight">{a.prixParPlace ?? '—'}</p>
+                        <p className="text-[10px] text-[#8AA899] font-medium uppercase tracking-wide mt-0.5">MAD / place</p>
+                      </div>
+                    </div>
+                    {passagers.length > 0 && (
+                      <div className="mx-5 mb-5 rounded-2xl border border-brand-100 bg-brand-50 overflow-hidden">
+                        <div className="px-4 py-2 border-b border-brand-100">
+                          <p className="text-[11px] font-semibold uppercase tracking-widest text-brand-600">
+                            Vos passagers ({passagers.length})
+                          </p>
+                        </div>
+                        <div className="divide-y divide-brand-100">
+                          {passagers.map(p => (
+                            <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                              <div className="w-11 h-11 rounded-full bg-brand-600 flex items-center justify-center text-white text-sm font-bold uppercase shrink-0">
+                                {p.prenom?.charAt(0)}{p.nom?.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-[#1A1A1A]">{p.prenom} {p.nom}</p>
+                                {p.telephone && <p className="text-xs text-[#666] mt-0.5">{p.telephone}</p>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="px-5 pb-5">
+                      <button
+                        onClick={() => handleTerminer(a.id)}
+                        className="w-full py-2.5 rounded-xl bg-[#1A1A1A] text-white text-sm font-bold hover:bg-[#333] active:scale-[0.97] transition-[background-color,transform] duration-150"
+                      >
+                        Terminer le trajet
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+              return (
+                <div key={a.id} className="relative">
+                  <AnnonceCard annonce={a} />
+                  <div className="flex items-center gap-3 mt-2 ml-1">
+                    {(a.statut === 'PUBLIEE' || a.statut === 'COMPLETE') && (
+                      <button
+                        onClick={() => handleAnnuler(a.id)}
+                        className="text-xs text-red-400 hover:text-red-600 transition-[color] duration-150 font-medium"
+                      >
+                        Annuler
+                      </button>
+                    )}
+                    {(a.statut === 'PUBLIEE' || a.statut === 'COMPLETE') && (
+                      <button
+                        onClick={() => handleDemarrer(a.id)}
+                        className="text-xs font-bold px-4 py-1.5 rounded-lg bg-[#00854B] text-white hover:bg-[#006D3D] active:scale-[0.97] transition-[background-color,transform] duration-150 shadow-[0_2px_6px_rgba(0,133,75,0.3)]"
+                      >
+                        Démarrer le trajet
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
+
+      {evalQueue.length > 0 && evalIndex < evalQueue.length && (() => {
+        const r = evalQueue[evalIndex]
+        return (
+          <EvaluationModal
+            key={r.id}
+            reservation={r}
+            destinataireId={r.passager?.id}
+            destinataireName={`${r.passager?.prenom ?? ''} ${r.passager?.nom ?? ''}`}
+            queueInfo={evalQueue.length > 1 ? { current: evalIndex + 1, total: evalQueue.length } : null}
+            onClose={handleEvalClose}
+            onDone={handleEvalDone}
+          />
+        )
+      })()}
     </div>
   )
 }

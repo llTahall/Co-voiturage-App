@@ -1,7 +1,7 @@
 package com.covoiturage.controller;
 
 import com.covoiturage.dto.EvaluationRequest;
-import com.covoiturage.entity.Evaluation;
+import com.covoiturage.dto.EvaluationResponse;
 import com.covoiturage.service.EvaluationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,12 +18,12 @@ public class EvaluationController {
     private final EvaluationService evaluationService;
 
     @PostMapping
-    public ResponseEntity<Evaluation> create(@Valid @RequestBody EvaluationRequest request) {
+    public ResponseEntity<EvaluationResponse> create(@Valid @RequestBody EvaluationRequest request) {
         return ResponseEntity.ok(evaluationService.create(request));
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Evaluation>> getForUser(@PathVariable Long userId) {
+    public ResponseEntity<List<EvaluationResponse>> getForUser(@PathVariable Long userId) {
         return ResponseEntity.ok(evaluationService.getEvaluationsForUser(userId));
     }
 }

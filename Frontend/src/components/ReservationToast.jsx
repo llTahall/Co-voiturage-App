@@ -15,8 +15,9 @@ export default function ReservationToastOverlay() {
         const isConducteurEvent = user?.role === 'CONDUCTEUR' && latest.type === 'NOUVELLE_RESERVATION'
         const isPassagerEvent = user?.role === 'PASSAGER' &&
             (latest.type === 'RESERVATION_ACCEPTEE' || latest.type === 'RESERVATION_REFUSEE' || latest.type === 'RESERVATION_ANNULEE_CONDUCTEUR')
+        const isEvalEvent = latest.type === 'EVALUATION_RECUE'
 
-        if (!isConducteurEvent && !isPassagerEvent) return
+        if (!isConducteurEvent && !isPassagerEvent && !isEvalEvent) return
 
         setToasts(prev => {
             if (prev.find(t => t.notifId === latest.id)) return prev
@@ -101,6 +102,15 @@ function ConducteurToastCard({ toast, onAccept, onRefuse, onDismiss }) {
 }
 
 const passagerConfig = {
+    EVALUATION_RECUE: {
+        bar: 'bg-[#00854B]',
+        label: 'Nouvel avis reçu',
+        icon: (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 2L9.6 5.8H13.5L10.4 8.2L11.6 12.5L8 10.1L4.4 12.5L5.6 8.2L2.5 5.8H6.4L8 2Z" stroke="white" strokeWidth="1.3" strokeLinejoin="round" fill="white" />
+            </svg>
+        ),
+    },
     RESERVATION_ACCEPTEE: {
         bar: 'bg-[#00854B]',
         label: 'Réservation acceptée',

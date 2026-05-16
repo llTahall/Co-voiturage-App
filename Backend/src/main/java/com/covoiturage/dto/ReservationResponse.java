@@ -37,6 +37,7 @@ public class ReservationResponse {
     @Builder
     @AllArgsConstructor
     public static class ConducteurInfo {
+        private Long id;
         private String prenom;
         private String nom;
         private String telephone;
@@ -89,6 +90,7 @@ public class ReservationResponse {
                     .prixParPlace(a.getPrixParPlace())
                     .trajet(trajetInfo)
                     .conducteur(a.getConducteur() != null ? ConducteurInfo.builder()
+                            .id(a.getConducteur().getId())
                             .prenom(a.getConducteur().getPrenom())
                             .nom(a.getConducteur().getNom())
                             .telephone(a.getConducteur().getTelephone())
@@ -103,6 +105,7 @@ public class ReservationResponse {
                 .statut(r.getStatut() != null ? r.getStatut().name() : null)
                 .annonce(annonceInfo)
                 .passager(r.getPassager() != null ? PassagerInfo.builder()
+                        .id(r.getPassager().getId())
                         .prenom(r.getPassager().getPrenom())
                         .nom(r.getPassager().getNom())
                         .telephone(r.getPassager().getTelephone())
@@ -112,11 +115,13 @@ public class ReservationResponse {
     }
 
     private PassagerInfo passager;
+    private boolean hasEvaluated;
 
     @Data
     @Builder
     @AllArgsConstructor
     public static class PassagerInfo {
+        private Long id;
         private String prenom;
         private String nom;
         private String telephone;

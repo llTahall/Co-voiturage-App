@@ -13,13 +13,15 @@ public class JwtResponse {
     private String nom;
     private String prenom;
     private String role;
+    private String telephone;
 
-    public JwtResponse(String token, Long id, String email, String nom, String prenom, String role) {
+    public JwtResponse(String token, Long id, String email, String nom, String prenom, String role, String telephone) {
         this.token = token;
         this.id = id;
         this.email = email;
         this.nom = nom;
         this.prenom = prenom;
         this.role = role;
+        this.telephone = telephone;
     }
 }

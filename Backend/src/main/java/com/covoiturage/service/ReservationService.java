@@ -4,6 +4,7 @@ import com.covoiturage.dto.ReservationRequest;
 import com.covoiturage.dto.ReservationResponse;
 import com.covoiturage.entity.*;
 import com.covoiturage.repository.AnnonceRepository;
+import com.covoiturage.repository.EvaluationRepository;
 import com.covoiturage.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ public class ReservationService {
 
     private final ReservationRepository reservationRepository;
     private final AnnonceRepository annonceRepository;
+    private final EvaluationRepository evaluationRepository;
     private final UserService userService;
     private final NotificationService notificationService;
 
@@ -168,14 +170,20 @@ public class ReservationService {
     @Transactional(readOnly = true)
     public List<ReservationResponse> getMesReservations() {
         User me = userService.getCurrentUser();
-        return reservationRepository.findByPassagerId(me.getId())
-                .stream().map(ReservationResponse::from).toList();
+        return reservationRepository.findByPassagerId(me.getId()).stream().map(r -> {
+            ReservationResponse res = ReservationResponse.from(r);
+            res.setHasEvaluated(evaluationRepository.existsByEmetteurIdAndReservationId(me.getId(), r.getId()));
+            return res;
+        }).toList();
     }
 
     @Transactional(readOnly = true)
     public List<ReservationResponse> getMesPassagers() {
         User me = userService.getCurrentUser();
-        return reservationRepository.findByAnnonceConducteurId(me.getId())
-                .stream().map(ReservationResponse::from).toList();
+        return reservationRepository.findByAnnonceConducteurId(me.getId()).stream().map(r -> {
+            ReservationResponse res = ReservationResponse.from(r);
+            res.setHasEvaluated(evaluationRepository.existsByEmetteurIdAndReservationId(me.getId(), r.getId()));
+            return res;
+        }).toList();
     }
 }

@@ -10,7 +10,8 @@ import LandingPage from './pages/LandingPage'
 
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
-import ProfilePage from './pages/ProfilePage'
+import ConducteurProfilPage from './pages/conducteur/ConducteurProfilPage'
+import PassagerProfilPage from './pages/passager/PassagerProfilPage'
 
 import ConducteurHomePage from './pages/conducteur/ConducteurHomePage'
 import CreateAnnoncePage from './pages/conducteur/CreateAnnoncePage'
@@ -47,7 +48,7 @@ function AppInner() {
 
         <Route element={<RoleProtectedRoute role="CONDUCTEUR" />}>
           <Route path="/conducteur/home" element={<ConducteurHomePage />} />
-          <Route path="/conducteur/profil" element={<ProfilePage />} />
+          <Route path="/conducteur/profil" element={<ConducteurProfilPage />} />
           <Route path="/annonces/create" element={<CreateAnnoncePage />} />
           <Route path="/mes-annonces" element={<MyAnnoncesPage />} />
           <Route path="/mes-passagers" element={<MesPassagersPage />} />
@@ -55,7 +56,7 @@ function AppInner() {
 
         <Route element={<RoleProtectedRoute role="PASSAGER" />}>
           <Route path="/passager/home" element={<PassagerHomePage />} />
-          <Route path="/passager/profil" element={<ProfilePage />} />
+          <Route path="/passager/profil" element={<PassagerProfilPage />} />
           <Route path="/mes-reservations" element={<MyReservationsPage />} />
         </Route>
 
