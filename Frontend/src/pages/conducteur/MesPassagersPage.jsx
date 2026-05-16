@@ -35,9 +35,19 @@ export default function MesPassagersPage() {
     const handleAccepter = async (id) => { await accepterReservation(id); load() }
     const handleRefuser = async (id) => { await refuserReservation(id); load() }
 
-    const enAttente = reservations.filter(r => r.statut === 'EN_ATTENTE')
-    const actives = reservations.filter(r => r.statut === 'ACCEPTEE')
-    const historique = reservations.filter(r => !['EN_ATTENTE', 'ACCEPTEE'].includes(r.statut))
+    const enAttente = reservations.filter(r =>
+        r.statut === 'EN_ATTENTE' &&
+        r.annonce?.statut !== 'TERMINEE' && r.annonce?.statut !== 'ANNULEE'
+    )
+    const actives = reservations.filter(r =>
+        r.statut === 'ACCEPTEE' &&
+        r.annonce?.statut !== 'TERMINEE' && r.annonce?.statut !== 'ANNULEE'
+    )
+    const historique = reservations.filter(r =>
+        !['EN_ATTENTE', 'ACCEPTEE'].includes(r.statut) ||
+        r.annonce?.statut === 'TERMINEE' || r.annonce?.statut === 'ANNULEE'
+    )
+
 
     const tabs = [
         { key: 'en_attente', label: `À traiter (${enAttente.length})` },
@@ -155,8 +165,20 @@ function PassagerCard({ r, onAccepter, onRefuser }) {
                                 ? `${(r.annonce.prixParPlace * r.nombrePlaces).toFixed(0)} MAD`
                                 : '—'}
                         </p>
+                        {r.passager?.telephone && (
+                            <a
+                                href={`tel:${r.passager.telephone}`}
+                                className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 transition-[color] duration-150"
+                            >
+                                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                                    <path d="M2 1h2.5l1 2.5-1.5 1a6 6 0 003.5 3.5l1-1.5L11 7.5V10a1 1 0 01-1 1C4.477 11 0 6.523 0 1a1 1 0 011-1h1z" fill="currentColor" />
+                                </svg>
+                                {r.passager.telephone}
+                            </a>
+                        )}
                     </div>
                 </div>
+
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0">

@@ -38,24 +38,23 @@ export default function SearchPage() {
   useEffect(() => {
     search(form)
   }, [])
-
-  useEffect(() => {
+  const loadReservations = () => {
     if (!isAuthenticated) return
     getMesReservations()
       .then(({ data }) => {
-        // Uniquement les réservations actives (pas les annulées)
-        const ids = new Set(
-          data
-            .filter(r => ['EN_ATTENTE', 'ACCEPTEE'].includes(r.statut))
-            .map(r => r.annonce?.id)
-            .filter(Boolean)
+        const actives = data.filter(r =>
+          ['EN_ATTENTE', 'ACCEPTEE'].includes(r.statut) &&
+          r.annonce?.statut !== 'TERMINEE' &&
+          r.annonce?.statut !== 'ANNULEE'
         )
-        setReservedIds(ids)
-        const active = data.find(r => ['EN_ATTENTE', 'ACCEPTEE'].includes(r.statut))
-        setActiveReservation(active ?? null)
+        setReservedIds(new Set(actives.map(r => r.annonce?.id).filter(Boolean)))
+        setActiveReservation(actives[0] ?? null)
       })
       .catch(() => { })
-  }, [isAuthenticated])
+  }
+
+  useEffect(() => { loadReservations() }, [isAuthenticated])
+
 
 
   const handleSubmit = (e) => {
@@ -71,10 +70,19 @@ export default function SearchPage() {
     'ANNONCE_MISE_A_JOUR',
   ])
 
+  const RESERVATION_EVENTS = new Set([
+    'RESERVATION_ACCEPTEE', 'RESERVATION_REFUSEE',
+    'RESERVATION_ANNULEE_CONDUCTEUR', 'ANNONCE_ANNULEE',
+    'TRAJET_TERMINE',
+  ])
+
   useEffect(() => {
     const latest = notifications[0]
-    if (latest && SEARCH_EVENTS.has(latest.type)) search(form)
+    if (!latest) return
+    if (SEARCH_EVENTS.has(latest.type)) search(form)
+    if (RESERVATION_EVENTS.has(latest.type)) loadReservations()
   }, [notifications.length])
+
 
   return (
     <div className="min-h-screen pt-[68px] bg-[#F4F4F4]">

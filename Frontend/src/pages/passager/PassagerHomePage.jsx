@@ -1,142 +1,161 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
 import { getMesReservations } from '../../api/reservationAPI'
+import { useNotifications } from '../../context/NotificationContext'
+import mapImg from '../../assets/pexels-marina-zasorina-7634150.jpg'
 
 const statusConfig = {
     EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
     ACCEPTEE: { label: 'Acceptée', cls: 'bg-brand-50 text-brand-700 border-brand-200' },
 }
 
+const REFRESH_EVENTS = new Set([
+    'RESERVATION_ACCEPTEE', 'RESERVATION_REFUSEE',
+    'RESERVATION_ANNULEE_CONDUCTEUR', 'ANNONCE_ANNULEE', 'TRAJET_TERMINE',
+])
+
 export default function PassagerHomePage() {
-    const { user } = useAuth()
     const navigate = useNavigate()
-    const [form, setForm] = useState({ villeDepart: '', villeArrivee: '', date: '' })
+    const { notifications } = useNotifications()
     const [reservations, setReservations] = useState([])
     const [loading, setLoading] = useState(true)
 
+    const load = () => getMesReservations()
+        .then(({ data }) => setReservations(data))
+        .finally(() => setLoading(false))
+
+    useEffect(() => { load() }, [])
+
     useEffect(() => {
-        getMesReservations()
-            .then(({ data }) => setReservations(data))
-            .finally(() => setLoading(false))
-    }, [])
+        const latest = notifications[0]
+        if (latest && REFRESH_EVENTS.has(latest.type)) load()
+    }, [notifications.length])
 
-    const actives = reservations.filter(r => r.statut === 'EN_ATTENTE' || r.statut === 'ACCEPTEE')
-
-    const handleSearch = (e) => {
-        e.preventDefault()
-        navigate(`/search?${new URLSearchParams(form).toString()}`)
-    }
+    const actives = reservations.filter(r =>
+        (r.statut === 'EN_ATTENTE' || r.statut === 'ACCEPTEE') &&
+        r.annonce?.statut !== 'TERMINEE' &&
+        r.annonce?.statut !== 'ANNULEE'
+    )
 
     return (
-        <div className="min-h-screen pt-[68px] bg-[#F4F4F4]">
+        <div className="min-h-screen pt-[64px] bg-white">
 
-            {/* Hero */}
-            <section className="bg-[#00854B] pt-12 pb-14 px-6">
-                <div className="max-w-3xl mx-auto">
-                    <p className="text-white/70 text-sm font-medium mb-1">Bonjour, {user?.prenom}</p>
-                    <h1 className="text-white text-3xl font-display font-bold tracking-[-0.03em] mb-8">
-                        Où voulez-vous aller ?
-                    </h1>
-                    <form
-                        onSubmit={handleSearch}
-                        className="bg-white rounded-2xl p-3 flex flex-col md:flex-row gap-2 shadow-[0_4px_24px_rgba(0,0,0,0.18)]"
-                    >
-                        <div className="flex-1 relative">
-                            <label className="absolute left-4 top-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#8AA899]">Départ</label>
-                            <input
-                                placeholder="Casablanca, Rabat…"
-                                value={form.villeDepart}
-                                onChange={e => setForm(f => ({ ...f, villeDepart: e.target.value }))}
-                                className="w-full pt-7 pb-2.5 px-4 rounded-xl text-sm text-[#1A1A1A] placeholder-[#B0C4BA] focus:outline-none focus:bg-[#F0FBF5] transition-[background-color] duration-200 font-medium"
-                            />
-                        </div>
-                        <div className="hidden md:flex items-center text-[#C8D9D0] font-bold text-lg">→</div>
-                        <div className="flex-1 relative">
-                            <label className="absolute left-4 top-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#8AA899]">Arrivée</label>
-                            <input
-                                placeholder="Marrakech, Fès…"
-                                value={form.villeArrivee}
-                                onChange={e => setForm(f => ({ ...f, villeArrivee: e.target.value }))}
-                                className="w-full pt-7 pb-2.5 px-4 rounded-xl text-sm text-[#1A1A1A] placeholder-[#B0C4BA] focus:outline-none focus:bg-[#F0FBF5] transition-[background-color] duration-200 font-medium"
-                            />
-                        </div>
-                        <div className="w-px hidden md:block bg-[#EAF0EC] self-stretch" />
-                        <div className="relative">
-                            <label className="absolute left-4 top-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#8AA899]">Date</label>
-                            <input
-                                type="date"
-                                value={form.date}
-                                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                                className="w-full md:w-auto pt-7 pb-2.5 px-4 rounded-xl text-sm text-[#1A1A1A] focus:outline-none focus:bg-[#F0FBF5] transition-[background-color] duration-200 font-medium"
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className="px-7 py-3 rounded-xl bg-[#00854B] text-white text-sm font-bold hover:bg-[#006D3D] active:scale-[0.97] transition-[background-color,transform] duration-150 whitespace-nowrap"
-                        >
-                            Rechercher
-                        </button>
-                    </form>
+            {/* Section 1 — Hero */}
+            <div className="max-w-6xl mx-auto px-10 py-20 flex items-center gap-16">
+
+                {/* Left — image */}
+                <div className="w-[48%] shrink-0 rounded-2xl overflow-hidden" style={{ aspectRatio: '4/3' }}>
+                    <img
+                        src={mapImg}
+                        alt="Carte routière"
+                        className="w-full h-full object-cover"
+                        style={{ objectPosition: 'center 25%' }}
+                    />
                 </div>
-            </section>
 
-            <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
+                {/* Right — text */}
+                <div className="flex-1">
+                    <h1 className="font-display font-bold text-[2.6rem] leading-[1.1] tracking-[-0.03em] text-[#111713] mb-5">
+                        Trouvez votre trajet.<br />Voyagez malin.
+                    </h1>
+                    <p className="text-[#555] text-base leading-[1.75] mb-8 max-w-[460px]">
+                        Recherchez parmi des centaines de trajets proposés par des conducteurs de confiance. Partagez les frais et voyagez en toute simplicité.
+                    </p>
 
-                {!loading && actives.length > 0 && (
-                    <section>
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-base font-display font-bold text-[#111713]">Réservations en cours</h2>
-                            <Link to="/mes-reservations" className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline transition-[color] duration-150">
-                                Voir tout
-                            </Link>
+                    {!loading && actives.length > 0 && (
+                        <div className="flex items-center gap-2.5 mb-6 px-4 py-3 bg-brand-50 border border-brand-200 rounded-xl text-sm text-brand-700 w-fit">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3" />
+                                <path d="M5 7l1.5 1.5L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <span>
+                                <span className="font-semibold">{actives.length} réservation{actives.length > 1 ? 's' : ''}</span>
+                                {' '}active{actives.length > 1 ? 's' : ''} —{' '}
+                                <Link to="/mes-reservations" className="underline underline-offset-2 hover:text-brand-800 transition-[color] duration-150">
+                                    voir
+                                </Link>
+                            </span>
                         </div>
-                        <div className="space-y-3">
-                            {actives.slice(0, 2).map(r => <ReservationRow key={r.id} r={r} />)}
-                        </div>
-                    </section>
-                )}
+                    )}
 
-                {!loading && actives.length === 0 && (
-                    <div className="text-center py-14 bg-white rounded-2xl border border-[rgba(0,0,0,0.07)]">
-                        <p className="text-[#1A1A1A] font-semibold text-lg mb-1">Aucune réservation active</p>
-                        <p className="text-[#888] text-sm mb-6">Recherchez un trajet ci-dessus pour faire votre première demande.</p>
-                        <Link
-                            to="/search"
-                            className="inline-flex px-6 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 transition-[background-color] duration-150 shadow-[0_2px_8px_rgba(0,133,75,0.35)]"
-                        >
-                            Parcourir les trajets
-                        </Link>
-                    </div>
-                )}
+                    <Link
+                        to="/search"
+                        className="inline-flex items-center gap-3 px-7 py-3.5 rounded-full bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 active:scale-[0.97] transition-[background-color,transform] duration-150"
+                        style={{ boxShadow: '0 4px 20px rgba(0,133,75,0.35)' }}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <circle cx="6" cy="6" r="4.5" stroke="white" strokeWidth="1.6" />
+                            <path d="M9.5 9.5l3 3" stroke="white" strokeWidth="1.6" strokeLinecap="round" />
+                        </svg>
+                        Rechercher un trajet
+                    </Link>
+                </div>
             </div>
+
+            {/* Section 2 — Comment ça marche */}
+            <div className="bg-[#F7F8F6] border-t border-[rgba(0,0,0,0.06)]">
+                <div className="max-w-6xl mx-auto px-10 py-20">
+                    <h2 className="font-display font-bold text-[1.9rem] tracking-[-0.03em] text-[#111713] mb-2">
+                        Comment ça marche ?
+                    </h2>
+                    <p className="text-[#666] text-sm mb-12">Réservez votre place en trois étapes simples.</p>
+
+                    <div className="grid grid-cols-3 gap-8">
+                        <Step
+                            number="01"
+                            title="Recherchez un trajet"
+                            desc="Entrez votre départ, destination et date. Trouvez instantanément les trajets disponibles près de chez vous."
+                            icon={
+                                <>
+                                    <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.5" />
+                                    <path d="M9.5 9.5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                </>
+                            }
+                        />
+                        <Step
+                            number="02"
+                            title="Faites votre demande"
+                            desc="Choisissez un trajet qui vous convient et envoyez une demande de réservation au conducteur."
+                            icon={
+                                <>
+                                    <path d="M2 10V4a1 1 0 011-1h9a1 1 0 011 1v6a1 1 0 01-1 1H8l-3 2v-2H3a1 1 0 01-1-1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                                    <path d="M5 7h5M5 5.5h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                                </>
+                            }
+                        />
+                        <Step
+                            number="03"
+                            title="Voyagez ensemble"
+                            desc="Une fois accepté par le conducteur, préparez-vous à partir. Partagez les frais et profitez du trajet."
+                            icon={
+                                <>
+                                    <path d="M2 9.5l2-5h8l2 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    <rect x="1.5" y="9.5" width="13" height="2.5" rx="1.25" stroke="currentColor" strokeWidth="1.5" />
+                                    <circle cx="5" cy="12" r="1" fill="currentColor" />
+                                    <circle cx="11" cy="12" r="1" fill="currentColor" />
+                                </>
+                            }
+                        />
+                    </div>
+                </div>
+            </div>
+
         </div>
     )
 }
 
-function ReservationRow({ r }) {
-    const villeDepart = r.annonce?.trajet?.villeDepart ?? '—'
-    const villeArrivee = r.annonce?.trajet?.villeArrivee ?? '—'
-    const cfg = statusConfig[r.statut] ?? statusConfig.EN_ATTENTE
-    const dateStr = r.annonce?.dateDepart
-        ? new Date(r.annonce.dateDepart).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
-        : '—'
-
+function Step({ number, title, desc, icon }) {
     return (
-        <div className="bg-white rounded-xl border border-brand-200 ring-1 ring-brand-100 px-5 py-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-                <div className="flex items-center gap-2 font-display font-bold text-[#1A1A1A] min-w-0">
-                    <span className="truncate">{villeDepart}</span>
-                    <svg width="14" height="10" viewBox="0 0 14 10" fill="none" className="shrink-0 text-brand-500">
-                        <path d="M1 5h11M8 1l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <span className="truncate">{villeArrivee}</span>
-                </div>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${cfg.cls}`}>
-                    {cfg.label}
-                </span>
+        <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+                {/* <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center shrink-0"
+                    style={{ boxShadow: '0 2px 12px rgba(0,133,75,0.3)' }}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">{icon}</svg>
+                </div> */}
+                {/* <span className="text-[11px] font-bold text-brand-600 tracking-widest">{number}</span> */}
             </div>
-            <p className="text-xs text-[#8AA899] shrink-0">{dateStr}</p>
+            <h3 className="font-display font-bold text-[1.05rem] text-[#111713] leading-tight">{title}</h3>
+            <p className="text-[#666] text-sm leading-[1.7]">{desc}</p>
         </div>
     )
 }
