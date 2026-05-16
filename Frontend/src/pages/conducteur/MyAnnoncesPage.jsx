@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { getMesAnnonces, annulerAnnonce, terminerAnnonce } from '../api/annonceAPI'
-import AnnonceCard from '../components/AnnonceCard'
+import { getMesAnnonces, annulerAnnonce, demarrerAnnonce, terminerAnnonce } from '../../api/annonceAPI'
+import AnnonceCard from '../../components/AnnonceCard'
 import { Link } from 'react-router-dom'
 
 const STATUS_LABELS = {
   PUBLIEE: { label: 'Disponible', cls: 'bg-brand-50 text-brand-700 border-brand-200' },
   COMPLETE: { label: 'Complet', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  EN_COURS: { label: 'En cours', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
   ANNULEE: { label: 'Annulée', cls: 'bg-stone-100 text-stone-500 border-stone-200' },
 }
 
@@ -33,6 +34,15 @@ export default function MyAnnoncesPage() {
     load()
   }
 
+  const handleDemarrer = async (id) => {
+    try {
+      await demarrerAnnonce(id)
+      load()
+    } catch (e) {
+      alert(e.response?.data?.message || 'Erreur lors du démarrage')
+    }
+  }
+
   const handleTerminer = async (id) => {
     try {
       await terminerAnnonce(id)
@@ -43,7 +53,7 @@ export default function MyAnnoncesPage() {
   }
 
   const actives = annonces.filter(a => a.statut !== 'ANNULEE' && a.statut !== 'TERMINEE')
-  const hasActiveAnnonce = annonces.some(a => ['PUBLIEE', 'COMPLETE'].includes(a.statut))
+  const hasActiveAnnonce = annonces.some(a => ['PUBLIEE', 'COMPLETE', 'EN_COURS'].includes(a.statut))
 
   const historique = filterStatus === 'TOUS'
     ? annonces
@@ -142,19 +152,27 @@ export default function MyAnnoncesPage() {
             {displayed.map(a => (
               <div key={a.id} className="relative">
                 <AnnonceCard annonce={a} />
-                <div className="flex gap-4 mt-2 ml-1">
-                  {a.statut === 'PUBLIEE' && (
+                <div className="flex items-center gap-3 mt-2 ml-1">
+                  {(a.statut === 'PUBLIEE' || a.statut === 'COMPLETE') && (
                     <button
                       onClick={() => handleAnnuler(a.id)}
-                      className="text-xs text-[#AAA] hover:text-red-500 transition-[color] duration-150 font-medium"
+                      className="text-xs text-red-400 hover:text-red-600 transition-[color] duration-150 font-medium"
                     >
-                      Annuler l'annonce
+                      Annuler
                     </button>
                   )}
                   {(a.statut === 'PUBLIEE' || a.statut === 'COMPLETE') && (
                     <button
+                      onClick={() => handleDemarrer(a.id)}
+                      className="text-xs font-bold px-4 py-1.5 rounded-lg bg-[#00854B] text-white hover:bg-[#006D3D] active:scale-[0.97] transition-[background-color,transform] duration-150 shadow-[0_2px_6px_rgba(0,133,75,0.3)]"
+                    >
+                      Démarrer le trajet
+                    </button>
+                  )}
+                  {a.statut === 'EN_COURS' && (
+                    <button
                       onClick={() => handleTerminer(a.id)}
-                      className="text-xs text-[#AAA] hover:text-brand-700 transition-[color] duration-150 font-medium"
+                      className="text-xs font-bold px-4 py-1.5 rounded-lg bg-[#1A1A1A] text-white hover:bg-[#333] active:scale-[0.97] transition-[background-color,transform] duration-150"
                     >
                       Terminer le trajet
                     </button>

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { searchAnnonces } from '../api/annonceAPI'
-import { getMesReservations } from '../api/reservationAPI'
-import { useAuth } from '../context/AuthContext'
-import AnnonceCard from '../components/AnnonceCard'
+import { searchAnnonces } from '../../api/annonceAPI'
+import { getMesReservations } from '../../api/reservationAPI'
+import { useAuth } from '../../context/AuthContext'
+import AnnonceCard from '../../components/AnnonceCard'
+import { useNotifications } from '../../context/NotificationContext'
+
 
 
 export default function SearchPage() {
@@ -61,6 +63,18 @@ export default function SearchPage() {
     setSearchParams(form)
     search(form)
   }
+  const { notifications } = useNotifications()
+
+  const SEARCH_EVENTS = new Set([
+    'NOUVELLE_ANNONCE', 'ANNONCE_ANNULEE',
+    'TRAJET_DEMARRE', 'TRAJET_TERMINE',
+    'ANNONCE_MISE_A_JOUR',
+  ])
+
+  useEffect(() => {
+    const latest = notifications[0]
+    if (latest && SEARCH_EVENTS.has(latest.type)) search(form)
+  }, [notifications.length])
 
   return (
     <div className="min-h-screen pt-[68px] bg-[#F4F4F4]">

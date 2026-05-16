@@ -7,6 +7,8 @@ import com.covoiturage.repository.AnnonceRepository;
 import com.covoiturage.repository.ReservationRepository;
 import com.covoiturage.repository.VehiculeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
@@ -27,7 +29,7 @@ public class AnnonceService {
     private final VehiculeRepository vehiculeRepository;
     private final ReservationRepository reservationRepository;
     private final UserService userService;
-
+    private final NotificationService notificationService;
     // Factory spatiale : SRID 4326 correspond aux normes GPS (WGS 84)
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -38,7 +40,7 @@ public class AnnonceService {
             throw new RuntimeException("Not authorized: only drivers can create trips");
         }
         if (annonceRepository.existsByConducteurIdAndStatutIn(
-                me.getId(), List.of(StatusAnnonce.PUBLIEE, StatusAnnonce.COMPLETE))) {
+                me.getId(), List.of(StatusAnnonce.PUBLIEE, StatusAnnonce.COMPLETE, StatusAnnonce.EN_COURS))) {
             throw new RuntimeException(
                     "Vous avez déjà une annonce active. Elle doit être terminée avant d'en créer une nouvelle.");
         }
@@ -86,7 +88,17 @@ public class AnnonceService {
                 .vehicule(vehicule)
                 .build();
 
-        return annonceRepository.save(annonce);
+        Annonce saved = annonceRepository.save(annonce);
+
+        final Long annonceId = saved.getId();
+        final String nomConducteur = me.getPrenom() + " " + me.getNom();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                notificationService.broadcast("NOUVELLE_ANNONCE", nomConducteur + " propose un trajet", annonceId);
+            }
+        });
+
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -116,13 +128,34 @@ public class AnnonceService {
         annonce.setStatut(StatusAnnonce.ANNULEE);
         annonceRepository.save(annonce);
 
-        reservationRepository.findByAnnonceId(id).stream()
+        final Long annonceId = id;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                notificationService.broadcast("ANNONCE_ANNULEE", "Un trajet a été annulé", annonceId);
+            }
+        });
+
+        List<Reservation> affected = reservationRepository.findByAnnonceId(id).stream()
                 .filter(r -> r.getStatut() == StatusReservation.ACCEPTEE
                         || r.getStatut() == StatusReservation.EN_ATTENTE)
-                .forEach(r -> {
-                    r.setStatut(StatusReservation.ANNULEE_CONDUCTEUR);
-                    reservationRepository.save(r);
-                });
+                .toList();
+
+        affected.forEach(r -> {
+            r.setStatut(StatusReservation.ANNULEE_CONDUCTEUR);
+            reservationRepository.save(r);
+        });
+
+        List<String> passagerEmails = affected.stream()
+                .map(r -> r.getPassager().getEmail())
+                .distinct().toList();
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                passagerEmails.forEach(email ->
+                    notificationService.notifier(email, "RESERVATION_ANNULEE_CONDUCTEUR",
+                            "Le conducteur a annulé le trajet", id));
+            }
+        });
     }
 
     @Transactional(readOnly = true)
@@ -130,6 +163,28 @@ public class AnnonceService {
         Annonce a = annonceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Annonce not found: " + id));
         return AnnonceResponse.from(a);
+    }
+
+    @Transactional
+    public void demarrer(Long id) {
+        User me = userService.getCurrentUser();
+        Annonce annonce = annonceRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Annonce not found: " + id));
+        if (!annonce.getConducteur().getId().equals(me.getId())) {
+            throw new RuntimeException("Not authorized");
+        }
+        if (annonce.getStatut() != StatusAnnonce.PUBLIEE && annonce.getStatut() != StatusAnnonce.COMPLETE) {
+            throw new RuntimeException("L'annonce doit être active pour démarrer le trajet");
+        }
+        annonce.setStatut(StatusAnnonce.EN_COURS);
+        annonceRepository.save(annonce);
+
+        final Long annonceId = id;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                notificationService.broadcast("TRAJET_DEMARRE", "Un trajet a démarré", annonceId);
+            }
+        });
     }
 
     @Transactional
@@ -146,16 +201,26 @@ public class AnnonceService {
             throw new RuntimeException("Annonce déjà terminée ou annulée");
         }
 
-        LocalDateTime depart = LocalDateTime.of(annonce.getDateDepart(), annonce.getHeureDepart());
-        long demiDuree = annonce.getTrajet().getDureeEstimeeTotale() / 2;
-        LocalDateTime seuilTerminaison = depart.plusMinutes(demiDuree);
-
-        if (LocalDateTime.now().isBefore(seuilTerminaison)) {
-            throw new RuntimeException("Trop tôt pour terminer ce trajet");
+        // Si le trajet est EN_COURS (démarré), on peut terminer immédiatement
+        // Sinon, on applique la contrainte de temps (demi-durée écoulée)
+        if (annonce.getStatut() != StatusAnnonce.EN_COURS) {
+            LocalDateTime depart = LocalDateTime.of(annonce.getDateDepart(), annonce.getHeureDepart());
+            long demiDuree = annonce.getTrajet().getDureeEstimeeTotale() / 2;
+            LocalDateTime seuilTerminaison = depart.plusMinutes(demiDuree);
+            if (LocalDateTime.now().isBefore(seuilTerminaison)) {
+                throw new RuntimeException("Trop tôt pour terminer ce trajet");
+            }
         }
 
         annonce.setStatut(StatusAnnonce.TERMINEE);
         annonceRepository.save(annonce);
+
+        final Long annonceId = id;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                notificationService.broadcast("TRAJET_TERMINE", "Un trajet est terminé", annonceId);
+            }
+        });
     }
 
 }
