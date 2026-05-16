@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getMesAnnonces, annulerAnnonce, demarrerAnnonce, terminerAnnonce } from '../../api/annonceAPI'
 import AnnonceCard from '../../components/AnnonceCard'
 import { Link } from 'react-router-dom'
+import { useNotifications } from '../../context/NotificationContext'
 
 const STATUS_LABELS = {
   PUBLIEE: { label: 'Disponible', cls: 'bg-brand-50 text-brand-700 border-brand-200' },
@@ -16,6 +17,8 @@ export default function MyAnnoncesPage() {
   const [tab, setTab] = useState('actives')
   const [filterStatus, setFilterStatus] = useState('TOUS')
 
+  const { notifications } = useNotifications()
+
   const load = () => getMesAnnonces()
     .then(({ data }) => {
       const unique = data.filter((a, i, arr) => arr.findIndex(x => x.id === a.id) === i)
@@ -23,11 +26,12 @@ export default function MyAnnoncesPage() {
     })
     .finally(() => setLoading(false))
 
+  useEffect(() => { load() }, [])
+
   useEffect(() => {
-    load()
-    const interval = setInterval(load, 15000)
-    return () => clearInterval(interval)
-  }, [])
+    const latest = notifications[0]
+    if (latest?.type === 'RESERVATION_ANNULEE_PASSAGER') load()
+  }, [notifications.length])
 
   const handleAnnuler = async (id) => {
     await annulerAnnonce(id)
