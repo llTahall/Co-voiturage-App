@@ -12,6 +12,7 @@ const typeConfig = {
     ANNONCE_MISE_A_JOUR:         { label: 'Places disponibles',          dot: 'bg-brand-400' },
     TRAJET_DEMARRE:              { label: 'Trajet en cours',             dot: 'bg-blue-400' },
     TRAJET_TERMINE:              { label: 'Trajet terminé',              dot: 'bg-stone-400' },
+    EVALUATION_RECUE:            { label: 'Nouvel avis reçu',            dot: 'bg-brand-500' },
 }
 
 export default function NotificationBell() {

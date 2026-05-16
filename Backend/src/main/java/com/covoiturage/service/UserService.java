@@ -24,4 +24,15 @@ public class UserService {
         return userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found: " + id));
     }
+
+    public User updateProfile(String prenom, String nom, String telephone) {
+        User user = getCurrentUser();
+        if (prenom != null && !prenom.isBlank())
+            user.setPrenom(prenom);
+        if (nom != null && !nom.isBlank())
+            user.setNom(nom);
+        user.setTelephone(telephone);
+        return userRepository.save(user);
+    }
+
 }

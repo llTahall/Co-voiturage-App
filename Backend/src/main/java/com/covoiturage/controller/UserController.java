@@ -17,4 +17,12 @@ public class UserController {
     public ResponseEntity<User> getCurrentUser() {
         return ResponseEntity.ok(userService.getCurrentUser());
     }
+
+    @PutMapping("/me")
+    public ResponseEntity<User> updateProfile(@RequestBody UpdateProfileRequest req) {
+        return ResponseEntity.ok(userService.updateProfile(req.prenom(), req.nom(), req.telephone()));
+    }
+
+    public record UpdateProfileRequest(String prenom, String nom, String telephone) {
+    }
 }

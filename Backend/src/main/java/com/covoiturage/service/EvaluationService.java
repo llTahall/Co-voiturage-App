@@ -1,6 +1,7 @@
 package com.covoiturage.service;
 
 import com.covoiturage.dto.EvaluationRequest;
+import com.covoiturage.dto.EvaluationResponse;
 import com.covoiturage.entity.Evaluation;
 import com.covoiturage.entity.Reservation;
 import com.covoiturage.entity.StatusAnnonce;
@@ -21,9 +22,10 @@ public class EvaluationService {
     private final EvaluationRepository evaluationRepository;
     private final ReservationRepository reservationRepository;
     private final UserService userService;
+    private final NotificationService notificationService;
 
     @Transactional
-    public Evaluation create(EvaluationRequest req) {
+    public EvaluationResponse create(EvaluationRequest req) {
         User me = userService.getCurrentUser();
 
         if (evaluationRepository.existsByEmetteurIdAndReservationId(me.getId(), req.getReservationId())) {
@@ -61,10 +63,17 @@ if (!reservation.getPassager().getId().equals(me.getId()) &&
                 .commentaire(req.getCommentaire())
                 .build();
 
-        return evaluationRepository.save(evaluation);
+        Evaluation saved = evaluationRepository.save(evaluation);
+
+        String nomEmetteur = me.getPrenom() + " " + me.getNom();
+        notificationService.notifier(destinataire.getEmail(), "EVALUATION_RECUE",
+                nomEmetteur + " vous a laissé un avis", saved.getId());
+
+        return EvaluationResponse.from(saved);
     }
 
-    public List<Evaluation> getEvaluationsForUser(Long userId) {
-        return evaluationRepository.findByDestinataireId(userId);
+    public List<EvaluationResponse> getEvaluationsForUser(Long userId) {
+        return evaluationRepository.findByDestinataireId(userId)
+                .stream().map(EvaluationResponse::from).toList();
     }
 }

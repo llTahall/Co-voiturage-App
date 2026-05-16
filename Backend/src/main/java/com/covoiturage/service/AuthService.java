@@ -31,7 +31,8 @@ public class AuthService {
         String jwt = jwtUtils.generateJwtToken(authentication);
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         User user = userRepository.findByEmail(userDetails.getEmail()).orElseThrow();
-        return new JwtResponse(jwt, user.getId(), user.getEmail(), user.getNom(), user.getPrenom(), user.getRole());
+        return new JwtResponse(jwt, user.getId(), user.getEmail(), user.getNom(), user.getPrenom(), user.getRole(),
+                user.getTelephone());
     }
 
     public void register(RegisterRequest request) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { getMesReservations, annulerReservation } from '../../api/reservationAPI'
 import { useNotifications } from '../../context/NotificationContext'
+import EvaluationModal from '../../components/EvaluationModal'
 
 
 const statusConfig = {
@@ -19,14 +20,26 @@ export default function MyReservationsPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('actives')
   const [filterStatus, setFilterStatus] = useState('TOUS')
+  const [evalTarget, setEvalTarget] = useState(null)
   const location = useLocation()
   const navigate = useNavigate()
   const justReserved = location.state?.justReserved
 
-  const load = () => {
+  const load = (triggerEvalForAnnonceId = null) => {
     setLoading(true)
     return getMesReservations()
-      .then(({ data }) => setReservations(data))
+      .then(({ data }) => {
+        setReservations(data)
+        if (triggerEvalForAnnonceId) {
+          const toEval = data.find(r =>
+            r.annonce?.id === triggerEvalForAnnonceId &&
+            r.statut === 'ACCEPTEE' &&
+            r.annonce?.statut === 'TERMINEE' &&
+            !r.hasEvaluated
+          )
+          if (toEval) setEvalTarget(toEval)
+        }
+      })
       .catch(err => console.error('[MyReservations] load failed:', err))
       .finally(() => setLoading(false))
   }
@@ -46,7 +59,12 @@ export default function MyReservationsPage() {
 
   useEffect(() => {
     const latest = notifications[0]
-    if (latest && PASSAGER_EVENTS.has(latest.type)) load()
+    if (!latest || !PASSAGER_EVENTS.has(latest.type)) return
+    if (latest.type === 'TRAJET_TERMINE') {
+      load(latest.referenceId)
+    } else {
+      load()
+    }
   }, [notifications.length])
 
 
@@ -158,20 +176,33 @@ export default function MyReservationsPage() {
         ) : (
           <div className="space-y-4">
             {displayed.map(r => (
-              <ReservationCard key={r.id} r={r} onAnnuler={handleAnnuler} formatDate={formatDate} />
+              <ReservationCard key={r.id} r={r} onAnnuler={handleAnnuler} formatDate={formatDate} onEvaluer={setEvalTarget} />
             ))}
           </div>
         )}
       </div>
+
+      {evalTarget && (
+        <EvaluationModal
+          reservation={evalTarget}
+          destinataireId={evalTarget.annonce?.conducteur?.id}
+          destinataireName={`${evalTarget.annonce?.conducteur?.prenom ?? ''} ${evalTarget.annonce?.conducteur?.nom ?? ''}`}
+          onClose={() => setEvalTarget(null)}
+          onDone={() => { setEvalTarget(null); load() }}
+        />
+      )}
     </div>
   )
 }
 
-function ReservationCard({ r, onAnnuler, formatDate }) {
+function ReservationCard({ r, onAnnuler, formatDate, onEvaluer }) {
   const [expanded, setExpanded] = useState(false)
   const status = statusConfig[r.statut] ?? statusConfig.ANNULEE_CONDUCTEUR
   const isActive = ACTIVE_STATUTS.includes(r.statut)
   const isAcceptee = r.statut === 'ACCEPTEE'
+  const isEnCours = r.statut === 'ACCEPTEE' && r.annonce?.statut === 'EN_COURS'
+  const canCancel = isActive && r.annonce?.statut !== 'EN_COURS'
+  const canEvaluate = r.statut === 'ACCEPTEE' && r.annonce?.statut === 'TERMINEE' && !r.hasEvaluated
   const total = r.annonce?.prixParPlace && r.nombrePlaces
     ? (r.annonce.prixParPlace * r.nombrePlaces).toFixed(0)
     : '—'
@@ -181,7 +212,8 @@ function ReservationCard({ r, onAnnuler, formatDate }) {
   const conducteur = r.annonce?.conducteur
 
   return (
-    <div className={`bg-white rounded-2xl border shadow-card overflow-hidden ${isActive ? 'border-brand-300 ring-1 ring-brand-200' : 'border-[rgba(0,0,0,0.07)]'
+    <div className={`bg-white rounded-2xl border shadow-card overflow-hidden ${isEnCours ? 'border-brand-300 ring-1 ring-brand-200' :
+      isActive ? 'border-brand-300 ring-1 ring-brand-200' : 'border-[rgba(0,0,0,0.07)]'
       }`}>
       {r.statut === 'EN_ATTENTE' && (
         <div className="bg-amber-500 px-5 py-2 flex items-center gap-2">
@@ -189,12 +221,19 @@ function ReservationCard({ r, onAnnuler, formatDate }) {
           <span className="text-white text-xs font-semibold tracking-wide uppercase">En attente d'acceptation</span>
         </div>
       )}
-      {r.statut === 'ACCEPTEE' && (
+      {isAcceptee && !isEnCours && (
         <div className="bg-brand-600 px-5 py-2 flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
           <span className="text-white text-xs font-semibold tracking-wide uppercase">Réservation acceptée</span>
         </div>
       )}
+      {isEnCours && (
+        <div className="bg-brand-600 px-5 py-2.5 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          <span className="text-white text-xs font-bold tracking-wide uppercase">Trajet en cours</span>
+        </div>
+      )}
+
       <div className="p-5 flex items-start justify-between gap-4">
         <div className="space-y-2 flex-1 min-w-0">
           <div className="flex items-center gap-2 font-display font-bold text-lg text-[#1A1A1A]">
@@ -217,10 +256,10 @@ function ReservationCard({ r, onAnnuler, formatDate }) {
         <div className="text-right shrink-0">
           <p className="text-2xl font-display font-bold text-brand-600 leading-tight">{total}</p>
           <p className="text-[10px] text-[#8AA899] font-medium uppercase tracking-wide mt-0.5">MAD total</p>
-          {isActive && (
+          {canCancel && (
             <button
               onClick={() => onAnnuler(r.id)}
-              className="mt-3 text-xs text-[#AAA] hover:text-red-500 transition-[color] duration-150 font-medium block"
+              className="mt-3 px-3 py-1 rounded-lg border border-red-200 text-xs font-semibold text-red-500 hover:bg-red-50 active:scale-[0.97] transition-[background-color,transform] duration-150"
             >
               Annuler
             </button>
@@ -228,8 +267,57 @@ function ReservationCard({ r, onAnnuler, formatDate }) {
         </div>
       </div>
 
-      {/* Détails conducteur — visible uniquement si ACCEPTÉE */}
-      {isAcceptee && (
+      {/* Conducteur en cours — toujours visible et développé */}
+      {isEnCours && conducteur && (
+        <div className="mx-5 mb-5 rounded-2xl border border-brand-100 bg-brand-50 overflow-hidden">
+          <div className="px-4 py-2 border-b border-brand-100">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-brand-600">Votre conducteur</p>
+          </div>
+          <div className="flex items-center gap-3 px-4 py-3">
+            <div className="w-11 h-11 rounded-full bg-brand-600 flex items-center justify-center text-white text-sm font-bold uppercase shrink-0">
+              {conducteur.prenom?.charAt(0)}{conducteur.nom?.charAt(0)}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-[#1A1A1A]">{conducteur.prenom} {conducteur.nom}</p>
+              {conducteur.telephone && (
+                <p className="text-xs text-[#666] mt-0.5">{conducteur.telephone}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Évaluation — visible si trajet terminé et pas encore évalué */}
+      {canEvaluate && (
+        <div className="px-5 py-3 border-t border-[rgba(0,0,0,0.06)] bg-brand-50/60 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-brand-600 shrink-0">
+              <path d="M7 1.5L8.5 5H12.5L9.2 7.3L10.5 11.5L7 9.1L3.5 11.5L4.8 7.3L1.5 5H5.5L7 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+            </svg>
+            <span className="text-xs font-semibold text-brand-700">Trajet terminé — donnez votre avis !</span>
+          </div>
+          <button
+            onClick={() => onEvaluer(r)}
+            className="px-4 py-1.5 rounded-xl bg-brand-600 text-white text-xs font-bold hover:bg-brand-700 active:scale-[0.96] transition-[background-color,transform] duration-150"
+            style={{ boxShadow: '0 2px 8px rgba(0,133,75,0.25)' }}
+          >
+            Évaluer
+          </button>
+        </div>
+      )}
+
+      {r.hasEvaluated && r.annonce?.statut === 'TERMINEE' && (
+        <div className="px-5 py-2.5 border-t border-[rgba(0,0,0,0.06)] flex items-center gap-2">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-brand-500 shrink-0">
+            <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M3.5 6l2 2 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="text-[11px] text-brand-600 font-semibold">Avis envoyé</span>
+        </div>
+      )}
+
+      {/* Détails conducteur — visible uniquement si ACCEPTÉE et pas EN_COURS */}
+      {isAcceptee && !isEnCours && (
         <>
           <button
             onClick={() => setExpanded(v => !v)}
