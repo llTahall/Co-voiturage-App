@@ -26,7 +26,7 @@ export function NotificationProvider({ children }) {
         const role = user?.role
 
         const client = new Client({
-            webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+            webSocketFactory: () => new SockJS(`${window.location.origin}/ws`),
             connectHeaders: { Authorization: `Bearer ${token}` },
             reconnectDelay: 5000,
             onConnect: () => {
