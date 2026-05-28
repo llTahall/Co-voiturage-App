@@ -1,4 +1,4 @@
-# CoVoiture — Full-Stack Ride-Sharing Platform
+# Full-Stack Ride-Sharing Platform
 
 A production-ready carpooling web application connecting drivers and passengers for intercity travel in Morocco.
 
